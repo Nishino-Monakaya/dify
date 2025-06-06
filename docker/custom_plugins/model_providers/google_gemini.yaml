@@ -1,0 +1,28 @@
+provider: google-gemini
+label:
+  en_US: Google Gemini (Custom Vertex AI)
+supported_model_types:
+  - text-embedding
+configurate_methods:
+  - customizable-model
+provider_credential_schema:
+  credential_form_schemas:
+    - variable: project_id
+      type: text-input
+      label:
+        en_US: GCP Project ID
+      required: true
+    - variable: location
+      type: select
+      label:
+        en_US: Region
+      required: true
+      options:
+        - value: us-central1
+          label: us-central1
+      default: us-central1
+    - variable: service_account_json
+      type: textarea
+      label:
+        en_US: Service Account JSON
+      required: true

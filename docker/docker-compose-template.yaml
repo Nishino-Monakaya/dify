@@ -21,9 +21,18 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0" # 上限値
+          memory: "2g"  # 上限値
+        reservations:
+          cpus: "0.5" # 予約値
+          memory: "1g"  # 予約値
     volumes:
       # Mount the storage directory to the container, for storing user files.
-      - ./volumes/app/storage:/app/api/storage
+      - ./custom_plugins/model_providers:/app/api/plugins/model_providers
+      - ./storage:/app/storage
     networks:
       - ssrf_proxy_network
       - default
@@ -48,9 +57,18 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "2g"
+        reservations:
+          cpus: "0.5"
+          memory: "1g"
     volumes:
       # Mount the storage directory to the container, for storing user files.
-      - ./volumes/app/storage:/app/api/storage
+      - ./custom_plugins/model_providers:/app/api/plugins/model_providers
+      - ./storage:/app/storage
     networks:
       - ssrf_proxy_network
       - default
@@ -85,9 +103,18 @@ services:
     restart: always
     environment:
       PGUSER: ${PGUSER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-difyai123456}
+      POSTGRES_PASSWORD:  ${DB_PASSWORD} # ★ 修正
       POSTGRES_DB: ${POSTGRES_DB:-dify}
       PGDATA: ${PGDATA:-/var/lib/postgresql/data/pgdata}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C" # ★ 追加
+    deploy: # ★ このブロックを追加すると完璧です
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "2g"
+        reservations:
+          cpus: "0.5"
+          memory: "1g"
     command: >
       postgres -c 'max_connections=${POSTGRES_MAX_CONNECTIONS:-100}'
                -c 'shared_buffers=${POSTGRES_SHARED_BUFFERS:-128MB}'
@@ -95,7 +122,7 @@ services:
                -c 'maintenance_work_mem=${POSTGRES_MAINTENANCE_WORK_MEM:-64MB}'
                -c 'effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE:-4096MB}'
     volumes:
-      - ./volumes/db/data:/var/lib/postgresql/data
+      - /Users/yoshi/postgres_data_for_dify/data:/var/lib/postgresql/data # ★ 修正
     healthcheck:
       test: [ 'CMD', 'pg_isready', '-h', 'db', '-U', '${PGUSER:-postgres}', '-d', '${POSTGRES_DB:-dify}' ]
       interval: 1s
@@ -191,7 +218,7 @@ services:
     ports:
       - "${EXPOSE_PLUGIN_DEBUGGING_PORT:-5003}:${PLUGIN_DEBUGGING_PORT:-5003}"
     volumes:
-      - ./volumes/plugin_daemon:/app/storage
+      - ./storage:/app/storage
     depends_on:
       db:
         condition: service_healthy
@@ -479,8 +506,9 @@ services:
       ETCD_AUTO_COMPACTION_RETENTION: ${ETCD_AUTO_COMPACTION_RETENTION:-1000}
       ETCD_QUOTA_BACKEND_BYTES: ${ETCD_QUOTA_BACKEND_BYTES:-4294967296}
       ETCD_SNAPSHOT_COUNT: ${ETCD_SNAPSHOT_COUNT:-50000}
+      ETCD_UNSUPPORTED_ARCH: "arm64" # ★ 追加
     volumes:
-      - ./volumes/milvus/etcd:/etcd
+      - /Users/yoshi/milvus_data/volumes/etcd:/etcd # ★ 修正
     command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
     healthcheck:
       test: [ 'CMD', 'etcdctl', 'endpoint', 'health' ]
@@ -499,7 +527,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
     volumes:
-      - ./volumes/milvus/minio:/minio_data
+      - /Users/yoshi/milvus_data/volumes/minio:/minio_data # ★ 修正
     command: minio server /minio_data --console-address ":9001"
     healthcheck:
       test: [ 'CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live' ]
@@ -511,7 +539,7 @@ services:
 
   milvus-standalone:
     container_name: milvus-standalone
-    image: milvusdb/milvus:v2.5.0-beta
+    image: milvusdb/milvus:v2.5.12 # ★ v2.5.0-beta から推奨バージョンに更新
     profiles:
       - milvus
     command: [ 'milvus', 'run', 'standalone' ]
@@ -519,8 +547,16 @@ services:
       ETCD_ENDPOINTS: ${ETCD_ENDPOINTS:-etcd:2379}
       MINIO_ADDRESS: ${MINIO_ADDRESS:-minio:9000}
       common.security.authorizationEnabled: ${MILVUS_AUTHORIZATION_ENABLED:-true}
+    deploy: # ★ このブロックを追加
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: "32g"
+        reservations:
+          cpus: "2.0"
+          memory: "16g"
     volumes:
-      - ./volumes/milvus/milvus:/var/lib/milvus
+      - /Users/yoshi/milvus_data/volumes/milvus:/var/lib/milvus # ★ 修正
     healthcheck:
       test: [ 'CMD', 'curl', '-f', 'http://localhost:9091/healthz' ]
       interval: 30s
